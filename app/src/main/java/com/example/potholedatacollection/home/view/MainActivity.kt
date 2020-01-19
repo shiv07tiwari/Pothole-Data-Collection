@@ -104,8 +104,8 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
 
         if (mySensor?.type == Sensor.TYPE_ACCELEROMETER) {
             val x = p0.values[0]
-            val y = p0.values[0]
-            val z = p0.values[0]
+            val y = p0.values[1]
+            val z = p0.values[2]
 
             if (tripTimer%5 == 0) {
                 // To send data in interval of 5 seconds
@@ -117,8 +117,8 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
 
         if (mySensor?.type == Sensor.TYPE_GYROSCOPE) {
             val x = p0.values[0]
-            val y = p0.values[0]
-            val z = p0.values[0]
+            val y = p0.values[1]
+            val z = p0.values[2]
             if (tripTimer%5 ==0) {
                 // Add this data directly
                 Log.e("log","Sensor2 data : "+x+" "+y+" "+z)
