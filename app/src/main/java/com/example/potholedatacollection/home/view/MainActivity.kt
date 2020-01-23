@@ -5,29 +5,37 @@ import android.annotation.SuppressLint
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.graphics.drawable.Drawable
 import android.hardware.Sensor
 import android.hardware.SensorEvent
 import android.hardware.SensorEventListener
 import android.hardware.SensorManager
+import android.location.Address
+import android.location.Geocoder
 import android.location.Location
 import android.location.LocationManager
-import android.os.Build
+import android.os.*
 import androidx.appcompat.app.AppCompatActivity
-import android.os.Bundle
-import android.os.CountDownTimer
-import android.os.Looper
 import android.provider.Settings
 import android.util.Log
+import android.view.View
 import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
 import androidx.core.app.ActivityCompat
 import com.example.potholedatacollection.R
 import com.google.android.gms.location.*
 import kotlinx.android.synthetic.main.activity_main.*
+import java.io.*
+import java.text.SimpleDateFormat
+import java.util.*
+import kotlin.collections.ArrayList
+import kotlin.math.sqrt
+
 /**
  * TODO : Add location wherever sheet is updated. Sheet is basically database. Abhi phone me hi excel sheet bana denge
  * */
 
+@Suppress("DEPRECATION")
 class MainActivity : AppCompatActivity(), SensorEventListener {
 
     var isTripOn : Boolean = false
@@ -42,6 +50,21 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
     var longitude:Double = 0.0
     private var mFusedLocationProviderClient: FusedLocationProviderClient? = null
     lateinit var countDownTimer:CountDownTimer
+    lateinit var geocoder: Geocoder
+    var accelerometerData = ArrayList<String>()
+
+
+    var ax : Double = 0.0
+    var ay : Double = 0.0
+    var az : Double = 0.0
+
+    var prevax : Double = 0.0
+    var prevay : Double = 0.0
+    var prevaz : Double = 0.0
+    var gx : Double = 0.0
+    var gy : Double = 0.0
+    var gz : Double = 0.0
+
 
 
 
@@ -65,11 +88,85 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
         }
 
         btn_pothole.setOnClickListener{
-            // Update pothole counter and redraw the textview.
-            // Add pothole with locations to new pothole sheet.
-            // RN just log it with location.
+
+            potHoleCounter++
+
+            txt_cnt_pothole.text = "Total Potholes Reported: "+potHoleCounter
+
+            val ts : String = SimpleDateFormat("dd/MM/yyyy_HH:mm:ss").format(Date())
+
+            var type = "Pothole"
+
+            var data : String = ts + "," + accelerometerData[7] + "," + accelerometerData[8] + "," +type + ","
+
+            for (i in 10..14){
+
+                if(i==14)
+                    data +=accelerometerData[i]+"\n"
+                else
+                    data += accelerometerData[i] + ","
+            }
+
+
+            writeFileExternalStorage(data, "ConfirmPothole.csv")
+
+            var data2 : String = ""
+
+            for(x in accelerometerData){
+
+                data2 += x + ","
+            }
+
+            data2 += "1\n"
+
+            writeFileExternalStorage(data2,"FirstSheet.csv")
+
+
+            }
+
         }
 
+    fun writeFileExternalStorage(data : String,  fileName : String) {
+
+    var fullPath = Environment.getExternalStorageDirectory().absolutePath
+        var myDir = File(fullPath+"/Documents")
+
+        if (!myDir.exists()) {
+            myDir.mkdirs()
+        }
+    try
+    {
+
+        var file =  File(myDir, fileName)
+        if(file.exists()) {
+
+
+            try {
+                var file_writer =  OutputStreamWriter( FileOutputStream(file,true))
+                var buffered_writer =  BufferedWriter(file_writer)
+                buffered_writer.write(data)
+                buffered_writer.close()
+            } catch (e : IOException ) {
+                e.printStackTrace()
+            }
+
+
+        }
+        else {
+            Log.e("loggg", file.toString() + " " + data)
+
+            file.createNewFile()
+
+            var fOut = FileOutputStream(file,true)
+            fOut.write(data.toByteArray())
+            fOut.flush()
+            fOut.close()
+        }
+    }
+    catch (e : Exception )
+    {
+        Log.e("External File Storage Error ",e.message)
+    }
 
     }
 
@@ -78,7 +175,15 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
 
         if (isTripOn) {
             isTripOn = false
-            btn_start.text = "Start"
+            btn_start.text = "START"
+            text_intro.text = "Start the trip to store the data"
+            TripDesc.text = "Trip is OFF!"
+
+            txt_gyroscope.text = "Gyroscope :"
+            txt_accelerometer.text = "Accelerometer :"
+            txt_speed.text = "Speed :"
+            txt_location.text ="Location :"
+
             disableSensors()
             disablePotholeCounter()
             stopLocationService()
@@ -89,9 +194,11 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
         tripTimer = 0
         potHoleCounter = 0
         isTripOn = true
-        btn_start.text = "Trip On"
+        btn_start.text = "STOP"
+        TripDesc.text = "Trip is ON!"
+        text_intro.text = "Stop the trip to save the data"
         btn_pothole.isEnabled = true
-        countDownTimer = object : CountDownTimer(50000, 1000) {
+        countDownTimer = object : CountDownTimer(5000000, 1000) {
             override fun onTick(millisUntilFinished: Long) {
                 txt_trip_duration.text = "Trip time : "+tripTimer+" seconds"
                 tripTimer++
@@ -200,29 +307,90 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
     override fun onSensorChanged(p0: SensorEvent?) {
         val mySensor = p0?.sensor
 
+
         if (mySensor?.type == Sensor.TYPE_ACCELEROMETER) {
-            val x = p0.values[0]
-            val y = p0.values[1]
-            val z = p0.values[2]
+             ax = p0.values[0].toDouble()
+             ay = p0.values[1].toDouble()
+             az = p0.values[2].toDouble()
 
-            if (tripTimer%5 == 0) {
-                // To send data in interval of 5 seconds
-                // Add data to sheet - calculate speed here by maintaining
-                // prev x,y,z and then calculating it on an interval of 5 seconds
+             var tax = String.format("%.6f", ax).toDouble().toString()
+            var tay = String.format("%.6f", ay).toDouble().toString()
+            var taz = String.format("%.6f", az).toDouble().toString()
 
-
-                Log.e("log","Sensor1 data : "+x+" "+y+" "+z+" "+latitude+" "+longitude)
-            }
+             txt_accelerometer.text = "Accelerometer : ["+ tax+" , "+tay+" , "+taz+"]"
         }
 
         if (mySensor?.type == Sensor.TYPE_GYROSCOPE) {
-            val x = p0.values[0]
-            val y = p0.values[1]
-            val z = p0.values[2]
-            if (tripTimer%5 ==0) {
-                // Add this data directly
-                Log.e("log","Sensor2 data : "+x+" "+y+" "+z+" "+latitude+" "+longitude)
+             gx = p0.values[0].toDouble()
+             gy = p0.values[1].toDouble()
+             gz = p0.values[2].toDouble()
+
+            var tax = String.format("%.6f", gx).toDouble().toString()
+            var tay = String.format("%.6f", gy).toDouble().toString()
+            var taz = String.format("%.6f", gz).toDouble().toString()
+             txt_gyroscope.text = "Gyroscope : ["+tax+" , "+tay+" , "+taz+"]"
+
+        }
+
+        if (tripTimer%6 == 0) {
+            // To send data in interval of 5 seconds
+            // Add data to sheet - calculate speed here by maintaining
+            // prev x,y,z and then calculating it on an interval of 5 seconds
+
+            val rnds = (0..20).random()
+
+            val ts : String = SimpleDateFormat("dd/MM/yyyy_HH:mm:ss").format(Date())
+            var Speed : Double = 0.0
+
+
+            Speed = ((ax+ay+az)-(prevax+prevay+prevaz))/6
+
+            txt_speed.text="Speed : "+Speed.toString()
+            prevax = ax
+            prevay = ay
+            prevaz = az
+            var addresses : List<Address>
+
+            geocoder = Geocoder(this, Locale.getDefault())
+
+            addresses = geocoder.getFromLocation(latitude, longitude, 1)
+
+            accelerometerData.clear()
+
+            accelerometerData?.add(ts)
+            accelerometerData?.add(ax.toString())
+            accelerometerData?.add(ay.toString())
+            accelerometerData?.add(az.toString())
+            accelerometerData?.add(gx.toString())
+            accelerometerData?.add(gy.toString())
+            accelerometerData?.add(gz.toString())
+            accelerometerData?.add(latitude.toString())
+            accelerometerData?.add(longitude.toString())
+            accelerometerData?.add(Speed.toString())
+            accelerometerData?.add(addresses.get(0).featureName)
+            accelerometerData?.add(addresses.get(0).locality)
+            accelerometerData?.add(addresses.get(0).adminArea)
+            accelerometerData?.add(addresses.get(0).postalCode)
+            accelerometerData?.add(addresses.get(0).countryName)
+
+            var data : String = ""
+
+            for(x in accelerometerData){
+
+                data += x + ","
             }
+
+            txt_location.text = "Location : "+addresses.get(0).getAddressLine(0)
+
+            data += "0\n"
+
+            if(rnds == 10){
+
+                Log.e("Accelerometer ",accelerometerData.toString())
+                writeFileExternalStorage(data,"FirstSheet.csv")
+            }
+
+
         }
     }
 
