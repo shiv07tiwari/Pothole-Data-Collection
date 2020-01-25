@@ -5,7 +5,6 @@ import android.annotation.SuppressLint
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
-import android.graphics.drawable.Drawable
 import android.hardware.Sensor
 import android.hardware.SensorEvent
 import android.hardware.SensorEventListener
@@ -18,7 +17,6 @@ import android.os.*
 import androidx.appcompat.app.AppCompatActivity
 import android.provider.Settings
 import android.util.Log
-import android.view.View
 import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
 import androidx.core.app.ActivityCompat
@@ -29,7 +27,6 @@ import java.io.*
 import java.text.SimpleDateFormat
 import java.util.*
 import kotlin.collections.ArrayList
-import kotlin.math.sqrt
 
 /**
  * TODO : Add location wherever sheet is updated. Sheet is basically database. Abhi phone me hi excel sheet bana denge
@@ -77,6 +74,7 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
         if (!locationManager.isProviderEnabled(LocationManager.GPS_PROVIDER)) {
             buildAlertMessageNoGps()
         }
+        startLocationService()
 
         sensorManager = getSystemService(Context.SENSOR_SERVICE) as SensorManager
         sensorAccelerometer = sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER)
@@ -149,8 +147,6 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
             } catch (e : IOException ) {
                 e.printStackTrace()
             }
-
-
         }
         else {
             Log.e("loggg", file.toString() + " " + data)
@@ -357,21 +353,24 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
 
             accelerometerData.clear()
 
-            accelerometerData?.add(ts)
-            accelerometerData?.add(ax.toString())
-            accelerometerData?.add(ay.toString())
-            accelerometerData?.add(az.toString())
-            accelerometerData?.add(gx.toString())
-            accelerometerData?.add(gy.toString())
-            accelerometerData?.add(gz.toString())
-            accelerometerData?.add(latitude.toString())
-            accelerometerData?.add(longitude.toString())
-            accelerometerData?.add(Speed.toString())
-            accelerometerData?.add(addresses.get(0).featureName)
-            accelerometerData?.add(addresses.get(0).locality)
-            accelerometerData?.add(addresses.get(0).adminArea)
-            accelerometerData?.add(addresses.get(0).postalCode)
-            accelerometerData?.add(addresses.get(0).countryName)
+            if (addresses.isNotEmpty()) {
+                accelerometerData?.add(ts)
+                accelerometerData?.add(ax.toString())
+                accelerometerData?.add(ay.toString())
+                accelerometerData?.add(az.toString())
+                accelerometerData?.add(gx.toString())
+                accelerometerData?.add(gy.toString())
+                accelerometerData?.add(gz.toString())
+                accelerometerData?.add(latitude.toString())
+                accelerometerData?.add(longitude.toString())
+                accelerometerData?.add(Speed.toString())
+                accelerometerData?.add(addresses.get(0).featureName)
+                accelerometerData?.add(addresses.get(0).locality)
+                accelerometerData?.add(addresses.get(0).adminArea)
+                accelerometerData?.add(addresses.get(0).postalCode)
+                accelerometerData?.add(addresses.get(0).countryName)
+            }
+
 
             var data : String = ""
 
@@ -385,7 +384,6 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
             data += "0\n"
 
             if(rnds == 10){
-
                 Log.e("Accelerometer ",accelerometerData.toString())
                 writeFileExternalStorage(data,"FirstSheet.csv")
             }
