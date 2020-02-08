@@ -5,6 +5,7 @@ import android.annotation.SuppressLint
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.graphics.Point
 import android.hardware.Sensor
 import android.hardware.SensorEvent
 import android.hardware.SensorEventListener
@@ -24,9 +25,14 @@ import com.example.potholedatacollection.R
 import com.google.android.gms.location.*
 import kotlinx.android.synthetic.main.activity_main.*
 import java.io.*
+import java.sql.Timestamp
 import java.text.SimpleDateFormat
 import java.util.*
 import kotlin.collections.ArrayList
+import kotlin.math.atan2
+import kotlin.math.cos
+import kotlin.math.sin
+import kotlin.math.sqrt
 
 /**
  * TODO : Add location wherever sheet is updated. Sheet is basically database. Abhi phone me hi excel sheet bana denge
@@ -62,7 +68,8 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
     var gy : Double = 0.0
     var gz : Double = 0.0
 
-
+    var speed : Double = 0.0
+    var time : Long = 0
 
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -91,11 +98,13 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
 
             txt_cnt_pothole.text = "Total Potholes Reported: "+potHoleCounter
 
-            val ts : String = SimpleDateFormat("dd/MM/yyyy_HH:mm:ss").format(Date())
+            val ts = Timestamp(System.currentTimeMillis()).time
+            Log.e("log","TImestamp : "+ts)
+
 
             var type = "Pothole"
 
-            var data : String = ts + "," + accelerometerData[7] + "," + accelerometerData[8] + "," +type + ","
+            var data : String = ts.toString() + "," + accelerometerData[7] + "," + accelerometerData[8] + "," +type + ","
 
             for (i in 10..14){
 
@@ -263,12 +272,41 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
 
     fun onLocationChanged(location: Location) {
         // New location has now been determined
+        val curTime = System.currentTimeMillis()
+        if (curTime - time > 200) {
+            val diff = curTime - time
+            if (location.hasSpeed())
+                speed = location.speed.toDouble()
+            else
+                speed = getDistance(latitude,longitude,location.latitude,location.longitude)/diff
+        }
         latitude = location.latitude
         longitude = location.longitude
         Log.e("log","Location change : "+location.latitude+" "+location.longitude)
 
-        // You can now create a LatLng Object for use with maps
     }
+
+//    /**
+// * Gets distance in meters, coordinates in RADIAN
+// */
+    fun getDistance(lat1:Double, lon1:Double, lat2:Double, lon2:Double): Double {
+        val R = 6371000.00
+        var dLat : Double = lat2-lat1
+        var dLon : Double = lon2 - lon1
+        var a : Double = sin(dLat/2)*sin(dLat/2)+cos(lat1)*cos(lat2)*sin(dLon/2)*sin(dLon/2)
+        var c = 2 * atan2(sqrt(a), sqrt(1-a))
+        return 2*R* atan2(sqrt(a), sqrt(1-a))
+    }
+//private static double getDistance(double lat1, double lon1, double lat2, double lon2) {
+//    double R = 6371000; // for haversine use R = 6372.8 km instead of 6371 km
+//    double dLat = lat2 - lat1;
+//    double dLon = lon2 - lon1;
+//    double a = ;
+//    //double c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+//    return 2 * R * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+//    // simplify haversine:
+//    //return 2 * R * 1000 * Math.asin(Math.sqrt(a));
+//}
 
 
     fun enableSensors() {
@@ -309,7 +347,7 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
              ay = p0.values[1].toDouble()
              az = p0.values[2].toDouble()
 
-             var tax = String.format("%.6f", ax).toDouble().toString()
+            var tax = String.format("%.6f", ax).toDouble().toString()
             var tay = String.format("%.6f", ay).toDouble().toString()
             var taz = String.format("%.6f", az).toDouble().toString()
 
@@ -336,12 +374,8 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
             val rnds = (0..20).random()
 
             val ts : String = SimpleDateFormat("dd/MM/yyyy_HH:mm:ss").format(Date())
-            var Speed : Double = 0.0
 
-
-            Speed = ((ax+ay+az)-(prevax+prevay+prevaz))/6
-
-            txt_speed.text="Speed : "+Speed.toString()
+            txt_speed.text="Speed : "+speed.toString()
             prevax = ax
             prevay = ay
             prevaz = az
@@ -363,7 +397,7 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
                 accelerometerData?.add(gz.toString())
                 accelerometerData?.add(latitude.toString())
                 accelerometerData?.add(longitude.toString())
-                accelerometerData?.add(Speed.toString())
+                accelerometerData?.add(speed.toString())
                 accelerometerData?.add(addresses.get(0).featureName)
                 accelerometerData?.add(addresses.get(0).locality)
                 accelerometerData?.add(addresses.get(0).adminArea)
@@ -435,8 +469,6 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
             }
         val alert: AlertDialog = builder.create()
         alert.show()
-
-
     }
 
 }
